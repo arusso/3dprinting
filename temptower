@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+
+""" Generates gcode for Temp Towers
+
+Generates gcode to insert before a layer change that adjusts temperature to
+match the temp-tower temperature section.
+
+Example for `https://www.thingiverse.com/thing:2493504` which has 34 layer
+sections (at 200µ layer height), with 5 extra layers at the bottom for the base
+plate.
+
+    ./temptower 34 210 170 -e 5
+"""
+
+import argparse
+import sys
+
+
+def stopGeneratorLoop(temp, start, stop):
+    """Stop our generator loop when we've exceeded our temperature boundary"""
+    if start > stop and temp < stop:
+        return True
+    elif start < stop and temp > stop:
+        return True
+
+    return False
+
+
+parser = argparse.ArgumentParser(description='Generate Temp Tower gcode')
+parser.add_argument('section_height', metavar='SECTION_HEIGHT', type=int,
+                    help='the height in layers of each temp section')
+parser.add_argument('start_temp', metavar='START_TEMP', type=int,
+                    help='start temperature in degrees celsius')
+parser.add_argument('stop_temp', metavar='STOP_TEMP', type=int,
+                    help='stop temperature in degrees celsius')
+parser.add_argument(
+        '-s', '--step', metavar='STEP_TEMP', type=int, default=5,
+        help='step up each section by this many degress celsius (default: 5)')
+parser.add_argument(
+        '-e', '--extra-first-layers', metavar='NUM_LAYERS', type=int,
+        default=0, help=('number of extra layers to include for first temp '
+                         '(ie. for a base plate)'))
+args = parser.parse_args()
+
+
+# Validate our input
+if args.section_height <= 0:
+    print("invalid layer height (got: <1, expected: >0)")
+    sys.exit(-1)
+elif args.start_temp > 300 or \
+     args.start_temp < 150 or \
+     args.stop_temp > 300 or \
+     args.stop_temp < 150:
+    print("start and/or stop temp is not between 150c and 300c")
+    sys.exit(-1)
+
+# normalize our steps to always be positive
+if args.step < 0:
+    args.step *= -1
+
+# if we're starting high and going low, make our steps negative
+if args.start_temp > args.stop_temp and args.step > 0:
+    args.step *= -1
+
+temp = args.start_temp
+layer = args.section_height + args.extra_first_layers
+while not stopGeneratorLoop(temp, args.start_temp, args.stop_temp):
+    if temp == args.start_temp:
+        print(f"{{if layer_num < {layer} }}M104 S{temp}")
+    else:
+        print(f"{{elsif layer_num < {layer} }}M104 S{temp}")
+    temp += args.step
+    layer += args.section_height
+
+print("{endif}")

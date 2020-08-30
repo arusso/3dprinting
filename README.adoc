@@ -1,0 +1,13 @@
+# 3D Printing
+
+Scripts and stuff related to 3D printing
+
+## temptower
+
+Generate custom gcode for altering the temperature of the extruder based on the
+layer height. Insert the generated code in the 'Before Layer Change' custom
+gcode section of your slicer. Tested w/PrusaSlicer.
+
+Example:
+
+    ./temptower -e 5 34 220 180
